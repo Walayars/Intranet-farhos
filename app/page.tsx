@@ -1,69 +1,145 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { DocumentoItem, TipoDocumento } from "@/lib/documento-types";
+import * as repo from "@/lib/repositorio-documentos";
+import { Sidebar } from "@/components/sidebar";
+import { Breadcrumb } from "@/components/breadcrumb";
+import { SearchBar } from "@/components/search-bar";
+import { FileRow } from "@/components/file-row";
+import { DetailsPanel } from "@/components/details-panel";
+import { PreviewPanel } from "@/components/preview-panel";
+import { Toolbar, SortKey, ViewMode } from "@/components/toolbar";
+import { ContextMenu, MenuItem } from "@/components/context-menu";
+import { NuevoItemModal } from "@/components/nuevo-item-modal";
 
 export default function Home() {
+  const [carpetaActual, setCarpetaActual] = useState<string | null>(null);
+  const [carpetasRaiz, setCarpetasRaiz] = useState<DocumentoItem[]>([]);
+  const [contenido, setContenido] = useState<DocumentoItem[]>([]);
+  const [ruta, setRuta] = useState<DocumentoItem[]>([]);
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState<DocumentoItem | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("nombre");
+  const [viewMode, setViewMode] = useState<ViewMode>("lista");
+  const [menuContextual, setMenuContextual] = useState<{ item: DocumentoItem; x: number; y: number } | null>(null);
+  const [modalNuevo, setModalNuevo] = useState<"carpeta" | TipoDocumento | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  const recargar = useCallback(async () => {
+    setCargando(true);
+    const [raiz, hijos, rutaActual] = await Promise.all([
+      repo.listarHijos(null),
+      repo.listarHijos(carpetaActual),
+      repo.obtenerRuta(carpetaActual),
+    ]);
+    setCarpetasRaiz(raiz);
+    setContenido(ordenar(hijos, sortKey));
+    setRuta(rutaActual);
+    setCargando(false);
+  }, [carpetaActual, sortKey]);
+
+  useEffect(() => {
+    recargar();
+  }, [recargar]);
+
+  function irACarpeta(id: string | null) {
+    setCarpetaActual(id);
+    setArchivoSeleccionado(null);
+  }
+
+  async function confirmarCreacion(nombre: string) {
+    if (modalNuevo === "carpeta") {
+      await repo.crearCarpeta(nombre, carpetaActual);
+    } else if (modalNuevo) {
+      await repo.crearArchivo(nombre, modalNuevo, carpetaActual);
+    }
+    setModalNuevo(null);
+    await recargar();
+  }
+
+  async function eliminarItem(id: string) {
+    if (!window.confirm("¿Eliminar este elemento? Esta acción no se puede deshacer.")) return;
+    await repo.eliminar(id);
+    if (archivoSeleccionado?.id === id) setArchivoSeleccionado(null);
+    await recargar();
+  }
+
+  async function renombrarItem(id: string, nombreActual: string) {
+    const nuevo = window.prompt("Nuevo nombre:", nombreActual);
+    if (!nuevo?.trim()) return;
+    await repo.renombrar(id, nuevo.trim());
+    await recargar();
+  }
+
+  const itemsDelMenuContextual: MenuItem[] = menuContextual
+    ? [
+        { label: "Abrir", icon: "📂", onClick: () => (menuContextual.item.tipo === "carpeta" ? irACarpeta(menuContextual.item.id) : setArchivoSeleccionado(menuContextual.item)) },
+        { label: "Renombrar", icon: "✏️", onClick: () => renombrarItem(menuContextual.item.id, menuContextual.item.nombreCasual) },
+        { label: "Eliminar", icon: "🗑", danger: true, onClick: () => eliminarItem(menuContextual.item.id) },
+      ]
+    : [];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex h-screen bg-white text-sm">
+      <Sidebar carpetasRaiz={carpetasRaiz} carpetaActual={carpetaActual} onSelect={irACarpeta} />
+
+      <div className="flex-1 flex flex-col">
+        <header className="h-16 border-b border-gray-200 flex flex-col justify-center gap-2 px-4 py-2">
+          <SearchBar />
+          <Breadcrumb ruta={ruta} onNavigate={irACarpeta} />
+        </header>
+
+        <Toolbar
+          onCreateFolder={() => setModalNuevo("carpeta")}
+          onCreateFile={(tipo) => setModalNuevo(tipo)}
+          onDeleteSelected={() => archivoSeleccionado && eliminarItem(archivoSeleccionado.id)}
+          haySeleccion={!!archivoSeleccionado}
+          sortKey={sortKey}
+          onChangeSort={setSortKey}
+          viewMode={viewMode}
+          onChangeView={setViewMode}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+        <div className="flex flex-1 overflow-hidden">
+          <main className="flex-1 overflow-y-auto">
+            {cargando && <div className="text-gray-400 text-center mt-16">Cargando...</div>}
+            {!cargando && contenido.length === 0 && (
+              <div className="text-gray-400 text-center mt-16">Esta carpeta está vacía.</div>
+            )}
+            {!cargando && contenido.map((item) => (
+              <FileRow
+                key={item.id}
+                item={item}
+                seleccionado={archivoSeleccionado?.id === item.id}
+                onOpenFolder={irACarpeta}
+                onSelectFile={(id) => setArchivoSeleccionado(contenido.find((i) => i.id === id) ?? null)}
+                onContextMenu={(item, x, y) => setMenuContextual({ item, x, y })}
+              />
+            ))}
+          </main>
+
+          <aside className="w-80 border-l border-gray-200 flex flex-col">
+            <DetailsPanel item={archivoSeleccionado} />
+            <PreviewPanel item={archivoSeleccionado} />
+          </aside>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      {menuContextual && (
+        <ContextMenu x={menuContextual.x} y={menuContextual.y} items={itemsDelMenuContextual} onClose={() => setMenuContextual(null)} />
+      )}
+
+      {modalNuevo && (
+        <NuevoItemModal tipo={modalNuevo} onConfirm={confirmarCreacion} onCancel={() => setModalNuevo(null)} />
+      )}
     </div>
   );
+}
+
+function ordenar(items: DocumentoItem[], sortKey: SortKey): DocumentoItem[] {
+  return [...items].sort((a, b) => {
+    if (sortKey === "nombre") return a.nombreCasual.localeCompare(b.nombreCasual);
+    if (sortKey === "fecha") return (b.fechaCreacion ?? "").localeCompare(a.fechaCreacion ?? "");
+    return (b.size ?? 0) - (a.size ?? 0);
+  });
 }
