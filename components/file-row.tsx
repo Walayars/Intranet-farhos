@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DocumentoItem, esCarpeta, getIcono, getNombreTipo, formatSize } from "@/lib/documento-types";
+import { DocumentoItem, esCarpeta, getIcono, getNombreTipo, formatSize, formatFecha } from "@/lib/documento-types";
 
 const COLOR_ESTADO: Record<string, string> = {
   "Terminado": "bg-green-100 text-green-700",
@@ -9,6 +9,15 @@ const COLOR_ESTADO: Record<string, string> = {
   "Enviar cliente": "bg-blue-100 text-blue-700",
   "Revisar": "bg-red-100 text-red-700",
 };
+
+function CeldaFecha({ etiqueta, fecha }: { etiqueta: string; fecha?: string }) {
+  return (
+    <div className="w-24 leading-tight">
+      <div className="text-[10px] text-gray-400">{etiqueta}</div>
+      <div className="text-gray-600 text-xs">{formatFecha(fecha)}</div>
+    </div>
+  );
+}
 
 type FileRowProps = {
   item: DocumentoItem;
@@ -62,6 +71,9 @@ export function FileRow({ item, seleccionado, onOpenFolder, onSelectFile, onCont
           <span className="w-20 text-gray-500">{formatSize(item.size)}</span>
         )}
 
+        {!esCarpeta(item) && <CeldaFecha etiqueta="Creado" fecha={item.fechaCreacion} />}
+        {!esCarpeta(item) && <CeldaFecha etiqueta="Modificado" fecha={item.fechaModificacion} />}
+
         {!esCarpeta(item) && (
           <button
             onClick={(e) => {
@@ -99,7 +111,9 @@ export function FileRow({ item, seleccionado, onOpenFolder, onSelectFile, onCont
             <div key={v.id} className="flex items-center gap-3 text-xs text-gray-600 py-1">
               <span>{getIcono(v.tipo)}</span>
               <span className="flex-1">{v.nombreCasual}</span>
-              <span>{formatSize(v.size)}</span>
+              <span className="w-20">{formatSize(v.size)}</span>
+              <CeldaFecha etiqueta="Creado" fecha={v.fechaCreacion} />
+              <CeldaFecha etiqueta="Modificado" fecha={v.fechaModificacion} />
               <button className="text-blue-600 hover:underline">Hacer principal</button>
             </div>
           ))}

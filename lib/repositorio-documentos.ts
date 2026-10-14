@@ -56,6 +56,7 @@ export async function crearArchivo(nombre: string, tipo: TipoDocumento, parentId
     estado: "En proceso",
     parentId,
     fechaCreacion: new Date().toISOString(),
+    fechaModificacion: new Date().toISOString(),
     creadoPor: "Tú",
     versiones: [],
   };
@@ -65,7 +66,12 @@ export async function crearArchivo(nombre: string, tipo: TipoDocumento, parentId
 
 export async function renombrar(id: string, nuevoNombre: string): Promise<void> {
   // TODO real: Graph API para renombrar en SharePoint + UPDATE en PostgreSQL
-  datosEnMemoria = datosEnMemoria.map((i) => (i.id === id ? { ...i, nombreCasual: nuevoNombre } : i));
+  // (SharePoint actualiza lastModifiedDateTime solo)
+  datosEnMemoria = datosEnMemoria.map((i) =>
+    i.id === id
+      ? { ...i, nombreCasual: nuevoNombre, fechaModificacion: new Date().toISOString() }
+      : i
+  );
 }
 
 export async function eliminar(id: string): Promise<void> {

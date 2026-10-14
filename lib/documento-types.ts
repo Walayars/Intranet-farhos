@@ -13,6 +13,7 @@ export type DocumentoItem = {
   parentId: string | null;
   versiones?: DocumentoItem[];
   fechaCreacion?: string;
+  fechaModificacion?: string;
   creadoPor?: string;
   webUrl?: string;
 };
@@ -49,4 +50,14 @@ export function formatSize(bytes?: number): string {
   if (!bytes) return "—";
   const kb = bytes / 1024;
   return kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb.toFixed(0)} KB`;
+}
+export function formatFecha(iso?: string): string {
+  if (!iso) return "—";
+  const fecha = new Date(iso);
+  if (isNaN(fecha.getTime())) return "—";
+  return fecha.toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
